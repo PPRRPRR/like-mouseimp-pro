@@ -1,44 +1,54 @@
 #!/usr/bin/python3
-import evdev
-from evdev import ecodes
+from evdev import InputDevice, UInput, ecodes as ec
 
-#key=ecodes.KEY_LEFTSHIFT
-#kb=evdev.InputDevice('/dev/input/event1')     # keybord
-origin=evdev.InputDevice('/dev/input/event4')  # mouse
-mouse=evdev.UInput.from_device(origin)
-#hwheel=evdev.UInput({ecodes.EV_REL:[ecodes.REL_HWHEEL]})
-#hwheel_hires=evdev.UInput({ecodes.EV_REL:[ecodes.REL_HWHEEL_HI_RES]})
-#wheel=evdev.UInput({ecodes.EV_REL:[ecodes.REL_WHEEL]})
-#wheel_hires=evdev.UInput({ecodes.EV_REL:[ecodes.REL_WHEEL_HI_RES]})
-#rbut=evdev.UInput({ecodes.EV_KEY:[ecodes.BTN_RIGHT]})
-#ymov=evdev.UInput({ecodes.EV_REL:[ecodes.REL_Y]})
-origin.grab()
+#key=ec.KEY_LEFTSHIFT
+#kb=InputDevice('/dev/input/event1')     # keybord
+input_mouse=InputDevice('/dev/input/event4')  # mouse
+output_mouse=UInput.from_device(input_mouse, name='Drag-scroll like MouseImp Pro!')
+#hwheel=UInput({ec.EV_REL:[ec.REL_HWHEEL]})
+#hwheel_hires=UInput({ec.EV_REL:[ec.REL_HWHEEL_HI_RES]})
+#wheel=UInput({ec.EV_REL:[ec.REL_WHEEL]})
+#wheel_hires=UInput({ec.EV_REL:[ec.REL_WHEEL_HI_RES]})
+#rbut=UInput({ec.EV_KEY:[ec.BTN_RIGHT]})
+#ymov=UInput({ec.EV_REL:[ec.REL_Y]})
+input_mouse.grab()
 
-rbtn_down=False
+rbtn_is_down=0
 last_rbtn_event=None
-for event in origin.read_loop():
-	if event.type==ecodes.EV_KEY and event.code==ecodes.BTN_RIGHT:
-		rbtn_down=True if event.value == 1 else False
+
+for event in input_mouse.read_loop():
+#	for att in dir(event): print (att, getattr(event,att))
+
+	if (ec.EV_KEY == event.type) and (ec.BTN_RIGHT == event.code):
+		rbtn_is_down = event.value
 		last_rbtn_event = event
 		continue
 
-#	if event.type==ecodes.EV_REL and event.code==ecodes.REL_WHEEL and key in kb.active_keys():
-	if rbtn_down and event.type==ecodes.EV_REL:
-		if event.code==ecodes.REL_Y:
+#	if ec.EV_REL == event.type and ec.REL_WHEEL == event.code and key in kb.active_keys():
+
+	if rbtn_is_down and (ec.EV_REL == event.type):
+		if event.code == ec.REL_Y:
+			last_rbtn_event = None
+			output_mouse.write(ec.EV_REL, ec.REL_WHEEL, -event.value)
+			output_mouse.write(ec.EV_REL, ec.REL_WHEEL_HI_RES, -event.value * 120)
+#			output_mouse.write(ec.EV_REL, ec.REL_Y, event.value)
+#			output_mouse.write(ec.EV_SYN, ec.SYN_REPORT, 0)
+			output_mouse.syn()
+			continue
+		elif event.code==ec.REL_X:
 			last_rbtn_event=None
-			mouse.write(ecodes.EV_REL, ecodes.REL_WHEEL, -event.value)
-			mouse.write(ecodes.EV_REL, ecodes.REL_WHEEL_HI_RES, -event.value * 120)
-			mouse.write(ecodes.EV_SYN, ecodes.SYN_REPORT, 0)
-		elif event.code==ecodes.REL_X:
-			last_rbtn_event=None
-			mouse.write(ecodes.EV_REL, ecodes.REL_HWHEEL, event.value)
-			mouse.write(ecodes.EV_REL, ecodes.REL_HWHEEL_HI_RES, event.value * 120)
-			mouse.write(ecodes.EV_SYN, ecodes.SYN_REPORT, 0)
-	else:
-		mouse.write_event(event)
+			output_mouse.write(ec.EV_REL, ec.REL_HWHEEL, event.value)
+			output_mouse.write(ec.EV_REL, ec.REL_HWHEEL_HI_RES, event.value * 120)
+#			output_mouse.write(ec.EV_REL, ec.REL_X, event.value)
+#			output_mouse.write(ec.EV_SYN, ec.SYN_REPORT, 0)
+			output_mouse.syn()
+			continue
 
 	if (last_rbtn_event and ((event.sec > last_rbtn_event.sec) or (event.sec == last_rbtn_event.sec and event.usec - last_rbtn_event.usec > 100)) ):
-		mouse.write_event(last_rbtn_event)
+		output_mouse.write_event(last_rbtn_event)
 		last_rbtn_event=None
 
-#	for att in dir(event): print (att, getattr(event,att))
+	output_mouse.write_event(event)
+
+
+input_mouse.ungrab()
